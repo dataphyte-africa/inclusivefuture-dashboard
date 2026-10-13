@@ -4,6 +4,7 @@ use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', DashboardController::class)->name('dashboard');
+Route::get('/download-data.csv', [DashboardController::class, 'download'])->name('public-data.download');
 Route::get('/sample-data/{type}.csv', function (string $type) {
     $samples = [
         'issues' => 'issues.csv',

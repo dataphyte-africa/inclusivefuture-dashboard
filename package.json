@@ -17,8 +17,10 @@
         "@laravel/multiplex": "^0.4.1"
     },
     "dependencies": {
+        "@tabler/icons-webfont": "^3.49.0",
         "alpinejs": "^3.17.4",
         "aos": "^2.3.4",
-        "chart.js": "^4.5.1"
+        "chart.js": "^4.5.1",
+        "d3-geo": "^3.1.1"
     }
 }

@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\IssueRecord;
 use App\Models\InterventionRecord;
+use App\Models\IssueRecord;
 use App\Models\LawPolicyRecord;
 use App\Models\ResourceRecord;
 use Illuminate\Support\Facades\Cache;
@@ -11,6 +11,54 @@ use Illuminate\Support\Facades\Cache;
 class DashboardController extends Controller
 {
     public function __invoke()
+    {
+        $records = $this->publishedRecords();
+        $typeCounts = $records->countBy('type');
+
+        $states = [
+            ['Abia', 'SE'], ['Adamawa', 'NE'], ['Akwa Ibom', 'SS'], ['Anambra', 'SE'], ['Bauchi', 'NE'], ['Bayelsa', 'SS'],
+            ['Benue', 'NC'], ['Borno', 'NE'], ['Cross River', 'SS'], ['Delta', 'SS'], ['Ebonyi', 'SE'], ['Edo', 'SS'],
+            ['Ekiti', 'SW'], ['Enugu', 'SE'], ['Gombe', 'NE'], ['Imo', 'SE'], ['Jigawa', 'NW'], ['Kaduna', 'NW'],
+            ['Kano', 'NW'], ['Katsina', 'NW'], ['Kebbi', 'NW'], ['Kogi', 'NC'], ['Kwara', 'NC'], ['Lagos', 'SW'],
+            ['Nasarawa', 'NC'], ['Niger', 'NC'], ['Ogun', 'SW'], ['Ondo', 'SW'], ['Osun', 'SW'], ['Oyo', 'SW'],
+            ['Plateau', 'NC'], ['Rivers', 'SS'], ['Sokoto', 'NW'], ['Taraba', 'NE'], ['Yobe', 'NE'], ['Zamfara', 'NW'], ['FCT (Abuja)', 'NC'],
+        ];
+
+        return view('atlas', [
+            'records' => $records,
+            'states' => $states,
+            'issueCount' => $records->where('type', 'issue')->pluck('issue_area')->unique()->count(),
+            'stateCount' => $records->pluck('state')->filter()->unique()->count(),
+            'types' => ['issue' => $typeCounts->get('issue', 0), 'intervention' => $typeCounts->get('intervention', 0), 'resource' => $typeCounts->get('resource', 0), 'law' => $typeCounts->get('law', 0)],
+        ]);
+    }
+
+    public function download()
+    {
+        $records = $this->publishedRecords();
+
+        return response()->streamDownload(function () use ($records) {
+            $output = fopen('php://output', 'w');
+            fputcsv($output, ['record_key', 'record_type', 'issue_area', 'state', 'title', 'details_json'], ',', '"', '');
+
+            foreach ($records as $record) {
+                fputcsv($output, [
+                    $record['record_key'],
+                    $record['type'],
+                    $record['issue_area'],
+                    $record['state'],
+                    $record['title'],
+                    json_encode($record['details'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                ], ',', '"', '');
+            }
+
+            fclose($output);
+        }, 'wocro-published-evidence.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    public function publishedRecords()
     {
         $records = collect(Cache::remember('eim:public-records:v2', now()->addMinutes(5), function () {
             $issues = IssueRecord::query()->where('status', 'published')->orderBy('issue_area')->orderBy('state')->get();
@@ -27,24 +75,15 @@ class DashboardController extends Controller
                 ->all();
         }));
 
-        $typeCounts = $records->countBy('type');
+        return $records->map(function (array $record) {
+            $record['issue_area'] = $this->cleanPublicCopy($record['issue_area'] ?? null);
+            $record['title'] = $this->cleanPublicCopy($record['title'] ?? null);
+            $record['details'] = collect($record['details'] ?? [])->map(
+                fn ($value, $field) => $field === 'source_url' ? $value : $this->cleanPublicCopy($value),
+            )->all();
 
-        $states = [
-            ['Abia', 'SE'], ['Adamawa', 'NE'], ['Akwa Ibom', 'SS'], ['Anambra', 'SE'], ['Bauchi', 'NE'], ['Bayelsa', 'SS'],
-            ['Benue', 'NC'], ['Borno', 'NE'], ['Cross River', 'SS'], ['Delta', 'SS'], ['Ebonyi', 'SE'], ['Edo', 'SS'],
-            ['Ekiti', 'SW'], ['Enugu', 'SE'], ['Gombe', 'NE'], ['Imo', 'SE'], ['Jigawa', 'NW'], ['Kaduna', 'NW'],
-            ['Kano', 'NW'], ['Katsina', 'NW'], ['Kebbi', 'NW'], ['Kogi', 'NC'], ['Kwara', 'NC'], ['Lagos', 'SW'],
-            ['Nasarawa', 'NC'], ['Niger', 'NC'], ['Ogun', 'SW'], ['Ondo', 'SW'], ['Osun', 'SW'], ['Oyo', 'SW'],
-            ['Plateau', 'NC'], ['Rivers', 'SS'], ['Sokoto', 'NW'], ['Taraba', 'NE'], ['Yobe', 'NE'], ['Zamfara', 'NW'], ['FCT (Abuja)', 'NC'],
-        ];
-
-        return view('dashboard', [
-            'records' => $records,
-            'states' => $states,
-            'issueCount' => $records->where('type', 'issue')->pluck('issue_area')->unique()->count(),
-            'stateCount' => $records->pluck('state')->filter()->unique()->count(),
-            'types' => ['issue' => $typeCounts->get('issue', 0), 'intervention' => $typeCounts->get('intervention', 0), 'resource' => $typeCounts->get('resource', 0), 'law' => $typeCounts->get('law', 0)],
-        ]);
+            return $record;
+        })->values();
     }
 
     private function shape($row, string $type, string $title, array $fields): array
@@ -59,5 +98,21 @@ class DashboardController extends Controller
             'title' => $title,
             'details' => $details,
         ];
+    }
+
+    private function cleanPublicCopy(mixed $value): mixed
+    {
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        $value = preg_replace('/\s*\(\s*fictional\s*\)/i', '', $value);
+        $value = preg_replace('/\s*,?\s*\bfictional\b/i', '', $value);
+        $value = preg_replace('/\s+/u', ' ', $value);
+        $value = preg_replace('/\s+([,.;:])/u', '$1', $value);
+        $value = preg_replace('/^[\s,;:.–—-]+/u', '', $value);
+        $value = preg_replace('/\(\s*\)/', '', $value);
+
+        return trim($value);
     }
 }

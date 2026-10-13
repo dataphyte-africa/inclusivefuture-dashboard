@@ -33,5 +33,7 @@ Thumbs.db
 AGENTS.md
 CLAUDE.md
 data/
+!public/data/
+!public/data/nigeria-states.geojson
 docs/
 CLAUDE.md

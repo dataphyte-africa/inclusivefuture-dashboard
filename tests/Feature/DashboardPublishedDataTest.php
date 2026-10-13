@@ -19,7 +19,7 @@ class DashboardPublishedDataTest extends TestCase
         IssueRecord::create([
             'record_key' => 'cp-visible-issue',
             'issue_area' => 'Dashboard test issue',
-            'indicator' => 'Test measure',
+            'indicator' => 'Test measure (fictional)',
             'state' => 'Lagos',
             'value' => 12,
             'unit' => 'percent',
@@ -66,10 +66,24 @@ class DashboardPublishedDataTest extends TestCase
         $response = $this->get('/');
 
         $response->assertOk()
+            ->assertSee('Ecosystem Intelligence Map')
+            ->assertDontSee('fictional')
+            ->assertDontSee('Download data')
+            ->assertDontSee('primary-nav')
             ->assertSee('cp-visible-issue')
             ->assertSee('cp-visible-intervention')
             ->assertSee('cp-visible-resource')
             ->assertSee('cp-visible-law')
             ->assertDontSee('cp-draft-issue');
+
+        $download = $this->get('/download-data.csv');
+        $download->assertOk()->assertDownload('wocro-published-evidence.csv');
+        $csv = $download->streamedContent();
+        $this->assertStringContainsString('cp-visible-issue', $csv);
+        $this->assertStringContainsString('cp-visible-intervention', $csv);
+        $this->assertStringContainsString('cp-visible-resource', $csv);
+        $this->assertStringContainsString('cp-visible-law', $csv);
+        $this->assertStringNotContainsString('fictional', $csv);
+        $this->assertStringNotContainsString('cp-draft-issue', $csv);
     }
 }

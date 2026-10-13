@@ -27,13 +27,34 @@
     "file": "assets/instrument-sans-600-normal-B9e8oLYv.woff",
     "src": "_instrument-sans-600-normal-B9e8oLYv.woff"
   },
+  "node_modules/@tabler/icons-webfont/dist/fonts/tabler-icons.ttf": {
+    "file": "assets/tabler-icons-CHGIAUie.ttf",
+    "src": "node_modules/@tabler/icons-webfont/dist/fonts/tabler-icons.ttf"
+  },
+  "node_modules/@tabler/icons-webfont/dist/fonts/tabler-icons.woff": {
+    "file": "assets/tabler-icons-nbzzeTjQ.woff",
+    "src": "node_modules/@tabler/icons-webfont/dist/fonts/tabler-icons.woff"
+  },
+  "node_modules/@tabler/icons-webfont/dist/fonts/tabler-icons.woff2": {
+    "file": "assets/tabler-icons-DYHjtlzS.woff2",
+    "src": "node_modules/@tabler/icons-webfont/dist/fonts/tabler-icons.woff2"
+  },
   "resources/css/app.css": {
-    "file": "assets/app-BKxkPAfk.css",
+    "file": "assets/app-w7fDE3A9.css",
     "name": "app",
     "names": [
       "app.css"
     ],
     "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/css/atlas.css": {
+    "file": "assets/atlas-B-11LZj_.css",
+    "name": "atlas",
+    "names": [
+      "atlas.css"
+    ],
+    "src": "resources/css/atlas.css",
     "isEntry": true
   },
   "resources/js/app.js": {
@@ -43,6 +64,20 @@
     "isEntry": true,
     "css": [
       "assets/app-PTugdkvS.css"
+    ]
+  },
+  "resources/js/atlas.js": {
+    "file": "assets/atlas-CqJCmNTC.js",
+    "name": "atlas",
+    "src": "resources/js/atlas.js",
+    "isEntry": true,
+    "css": [
+      "assets/atlas-cVS0UZIr.css"
+    ],
+    "assets": [
+      "assets/tabler-icons-DYHjtlzS.woff2",
+      "assets/tabler-icons-nbzzeTjQ.woff",
+      "assets/tabler-icons-CHGIAUie.ttf"
     ]
   }
 }

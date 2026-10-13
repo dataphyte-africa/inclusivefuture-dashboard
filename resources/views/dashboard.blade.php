@@ -261,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const resourceRows = () => records.filter((record) => record.type === 'resource' && (!selectedIssue || record.issue_area === selectedIssue));
     const money = (amount, currency) => `${currency === 'NGN' ? '₦' : currency} ${Number(amount || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
     const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char]);
-    const cleanUnit = (unit) => String(unit || '').replace(/\s*,?\s*(?:synthetic|illustrative)\s*$/i, '').replace(/\s*%/g, '%').trim();
+    const cleanUnit = (unit) => String(unit || '').replace(/\s*[,;]?\s*(?:synthetic|illustrative|fictional)\b[^)]*\)?\s*$/i, '').replace(/\s*\($/, '').replace(/\s*%/g, '%').trim();
     const formatIssueValue = (value, unit) => {
         const normalizedUnit = cleanUnit(unit);
         const formattedValue = Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 });
