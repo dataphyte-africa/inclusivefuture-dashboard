@@ -230,3 +230,11 @@
 **Implementation:** Updated the footer brand to “Inclusive Future Initiatives IFI”; replaced the data note with a concise platform description; removed the boundary-data column; changed the bottom line to “IFI - Ecosystem Intelligence Map” and “© 2026 Inclusive Future Initiatives. All rights reserved.” Reduced the header to 64 px on desktop and 56 px minimum on mobile, with the logo scaled to fit.
 
 **Verification:** The local browser showed the updated footer with the boundary-data block absent and a 64 px desktop header. Build passed, all 6 feature tests passed (38 assertions), and `git diff --check` passed. Mobile sizing is covered by the responsive CSS but was not separately browser-tested. No deployment was performed.
+
+## Mobile hero width and artwork visibility (2026-10-13)
+
+**User direction:** At mobile widths, let the hero description use the full width, ensure the map and women’s portrait remain visible, and scale the map CTA appropriately.
+
+**Implementation and browser check:** Reset the mobile hero to one full-width grid column, gave the copy and description full-width tracks, restored a dedicated lower visual row, and set a bounded mobile hero height so the artwork is not clipped. The CTA now uses its natural compact width and prevents its label wrapping. At 457 px, the copy and description measure 421 px wide, the CTA is 196 px wide, all 38 map paths and the portrait image are present, and the page has no horizontal overflow. Production build passed; Vite reports the existing Node 22.11.0 version recommendation and optional `fontaine` warning.
+
+**Follow-up:** Reduced the mobile hero height to `clamp(580px, 150vw, 700px)`, removed the copy block’s trailing margin, and constrained the map/portrait frame to a bottom-aligned near-square within the visual row. At 457 px the hero targets about 686 px; at narrow 319 px it is 580 px, with the artwork meeting the cityscape edge.

@@ -155,9 +155,11 @@
 @media(max-width:390px){.hero-stage h1{font-size:clamp(21px,7.4vw,29px)}}
 
 /* Trim the hero's open sky and give the atlas workspace the requested breathing room. */
-.hero-stage{height:clamp(460px,44vw,570px)}
+.hero-stage{height:clamp(460px,44vw,570px);align-items:start;padding-top:clamp(24px,3vw,36px);padding-bottom:0}
+.hero-intro-copy{align-self:start}
+.hero-stage .hero-scene .hero-map-visual{left:4%;right:auto;top:auto;bottom:0;width:92%;height:100%}
 .atlas-workspace{padding-block:72px}
-@media(max-width:1100px) and (min-width:861px){.hero-stage{height:clamp(480px,46vw,520px)}}
+@media(max-width:1100px) and (min-width:861px){.hero-stage{height:clamp(480px,46vw,520px);align-items:start;padding-top:clamp(30px,4vw,42px)}.hero-intro-copy{align-self:start}.hero-scene{height:100%}.hero-stage .hero-scene .hero-map-visual{position:absolute;left:3%;right:auto;top:auto;bottom:0;width:94%;height:100%}}
 @media(max-width:760px){.atlas-workspace{padding-block:40px}}
 .topbar .brand{width:142px;min-width:142px;flex:0 0 142px;gap:0}
 .topbar .brand img{display:block;width:100%;height:auto;max-height:68px;object-fit:contain;filter:brightness(0) saturate(100%) invert(14%) sepia(22%) saturate(2074%) hue-rotate(181deg) brightness(91%) contrast(98%)}
@@ -170,3 +172,13 @@
 .topbar .brand img{max-height:54px}
 .atlas-footer{grid-template-columns:minmax(220px,.7fr) minmax(0,1.3fr)}
 @media(max-width:760px){.topbar{min-height:56px;padding-block:4px}.topbar .brand img{max-height:48px}.atlas-footer{grid-template-columns:1fr}}
+
+/* Keep the mobile hero's copy and Nigeria artwork in full-width grid tracks. */
+@media(max-width:860px){
+    .hero-stage{height:clamp(580px,150vw,700px);grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+    .hero-intro-copy{width:100%;max-width:none;align-self:start;margin-bottom:0}
+    .hero-description{width:100%;max-width:none}
+    .hero-stage .hero-cta{width:fit-content;max-width:100%;white-space:nowrap}
+    .hero-scene{grid-column:1;grid-row:2;width:100%;height:100%;min-height:0;margin:0}
+    .hero-stage .hero-scene .hero-map-visual{position:absolute;left:4%;right:4%;top:auto;bottom:0;width:auto;height:min(100%,92vw)}
+}

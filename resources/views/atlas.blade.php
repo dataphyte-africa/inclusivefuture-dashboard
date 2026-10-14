@@ -28,7 +28,7 @@
             </div>
             <div class="hero-scene" aria-label="Nigeria's evidence ecosystem">
                 <div class="hero-map-visual">
-                    <svg id="hero-nigeria-map" class="hero-nigeria-outline" viewBox="0 0 500 500" role="img" aria-label="Nigeria with a portrait of two women" data-portrait-src="{{ asset('images/hero-women-duo-cutout.png') }}"></svg>
+                    <svg id="hero-nigeria-map" class="hero-nigeria-outline" viewBox="0 0 500 500" preserveAspectRatio="xMidYMax meet" role="img" aria-label="Nigeria with a portrait of two women" data-portrait-src="{{ asset('images/hero-women-duo-cutout.png') }}"></svg>
                 </div>
             </div>
             <img class="hero-landscape" src="{{ asset('images/hero-nigeria-cityscape.png') }}" alt="" aria-hidden="true" fetchpriority="high">
