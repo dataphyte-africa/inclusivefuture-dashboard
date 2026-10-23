@@ -39,7 +39,7 @@ class DashboardController extends Controller
 
         return response()->streamDownload(function () use ($records) {
             $output = fopen('php://output', 'w');
-            fputcsv($output, ['record_key', 'record_type', 'issue_area', 'state', 'title', 'details_json'], ',', '"', '');
+            fputcsv($output, ['record_key', 'record_type', 'issue_area', 'state', 'title', 'details_json', 'related_records_json'], ',', '"', '');
 
             foreach ($records as $record) {
                 fputcsv($output, [
@@ -49,6 +49,7 @@ class DashboardController extends Controller
                     $record['state'],
                     $record['title'],
                     json_encode($record['details'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    json_encode($record['related_records'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 ], ',', '"', '');
             }
 
@@ -60,17 +61,19 @@ class DashboardController extends Controller
 
     public function publishedRecords()
     {
-        $records = collect(Cache::remember('eim:public-records:v2', now()->addMinutes(5), function () {
-            $issues = IssueRecord::query()->where('status', 'published')->orderBy('issue_area')->orderBy('state')->get();
-            $interventions = InterventionRecord::query()->where('status', 'published')->orderBy('issue_area')->orderBy('state')->get();
-            $resources = ResourceRecord::query()->where('status', 'published')->orderBy('issue_area')->orderBy('state')->get();
-            $laws = LawPolicyRecord::query()->where('status', 'published')->orderBy('issue_area')->orderBy('state')->get();
+        $records = collect(Cache::remember('eim:public-records:v3', now()->addMinutes(5), function () {
+            $issues = IssueRecord::query()->with([
+                'interventionLinks.interventionRecord', 'resourceLinks.resourceRecord', 'lawPolicyLinks.lawPolicyRecord',
+            ])->where('status', 'published')->orderBy('issue_area')->orderBy('state')->get();
+            $interventions = InterventionRecord::query()->with('issueLinks.issueRecord')->where('status', 'published')->orderBy('issue_area')->orderBy('state')->get();
+            $resources = ResourceRecord::query()->with('issueLinks.issueRecord')->where('status', 'published')->orderBy('issue_area')->orderBy('state')->get();
+            $laws = LawPolicyRecord::query()->with('issueLinks.issueRecord')->where('status', 'published')->orderBy('issue_area')->orderBy('state')->get();
 
             return collect()
-                ->concat($issues->map(fn ($row) => $this->shape($row, 'issue', $row->indicator, ['value', 'unit', 'geography_level', 'population_group', 'disaggregation', 'period', 'data_type', 'source_name', 'source_url', 'source_reference', 'notes'])))
-                ->concat($interventions->map(fn ($row) => $this->shape($row, 'intervention', $row->name, ['geography_level', 'intervention_type', 'implementer', 'target_population', 'start_date', 'end_date', 'coverage_geography', 'implementation_status', 'description', 'source_name', 'source_url', 'source_reference', 'notes'])))
-                ->concat($resources->map(fn ($row) => $this->shape($row, 'resource', $row->programme ?: $row->resource_category, ['geography_level', 'programme', 'funder_mda', 'resource_category', 'funding_stage', 'amount', 'currency', 'allocation_year', 'period', 'source_name', 'source_url', 'source_reference', 'notes'])))
-                ->concat($laws->map(fn ($row) => $this->shape($row, 'law', $row->instrument_title, ['geography_level', 'instrument_category', 'law_policy_family', 'jurisdiction', 'status_label', 'enactment_date', 'source_name', 'source_url', 'source_reference', 'notes'])))
+                ->concat($issues->map(fn ($row) => $this->shape($row, 'issue', $row->indicator, ['value', 'unit', 'geography_level', 'population_group', 'disaggregation', 'period', 'data_type', 'source_name', 'source_url', 'source_reference', 'notes'], $this->issueRelatedRecords($row))))
+                ->concat($interventions->map(fn ($row) => $this->shape($row, 'intervention', $row->name, ['geography_level', 'intervention_type', 'implementer', 'target_population', 'start_date', 'end_date', 'coverage_geography', 'implementation_status', 'description', 'source_name', 'source_url', 'source_reference', 'notes'], $this->targetRelatedIssues($row->issueLinks, 'issueRecord'))))
+                ->concat($resources->map(fn ($row) => $this->shape($row, 'resource', $row->programme ?: $row->resource_category, ['geography_level', 'programme', 'funder_mda', 'resource_category', 'funding_stage', 'amount', 'currency', 'allocation_year', 'period', 'source_name', 'source_url', 'source_reference', 'notes'], $this->targetRelatedIssues($row->issueLinks, 'issueRecord'))))
+                ->concat($laws->map(fn ($row) => $this->shape($row, 'law', $row->instrument_title, ['geography_level', 'instrument_category', 'law_policy_family', 'jurisdiction', 'status_label', 'enactment_date', 'source_name', 'source_url', 'source_reference', 'notes'], $this->targetRelatedIssues($row->issueLinks, 'issueRecord'))))
                 ->values()
                 ->all();
         }));
@@ -86,7 +89,7 @@ class DashboardController extends Controller
         })->values();
     }
 
-    private function shape($row, string $type, string $title, array $fields): array
+    private function shape($row, string $type, string $title, array $fields, array $relatedRecords = []): array
     {
         $details = collect($fields)->mapWithKeys(fn ($field) => [$field => $row->{$field}])->all();
 
@@ -97,6 +100,46 @@ class DashboardController extends Controller
             'state' => $row->state,
             'title' => $title,
             'details' => $details,
+            'related_records' => $relatedRecords,
+        ];
+    }
+
+    private function issueRelatedRecords(IssueRecord $issue): array
+    {
+        return collect()
+            ->concat($issue->interventionLinks->map(fn ($link) => $this->relatedRecord($link->interventionRecord, 'intervention', $link->relationship_type, $link->source_reference)))
+            ->concat($issue->resourceLinks->map(fn ($link) => $this->relatedRecord($link->resourceRecord, 'resource', $link->relationship_type, $link->source_reference)))
+            ->concat($issue->lawPolicyLinks->map(fn ($link) => $this->relatedRecord($link->lawPolicyRecord, 'law', $link->relationship_type, $link->source_reference)))
+            ->filter()->values()->all();
+    }
+
+    private function targetRelatedIssues($links, string $relation): array
+    {
+        return $links->map(fn ($link) => $this->relatedRecord($link->{$relation}, 'issue', $link->relationship_type, $link->source_reference))
+            ->filter()->values()->all();
+    }
+
+    private function relatedRecord($related, string $type, string $relationshipType, ?string $sourceReference): ?array
+    {
+        if (! $related || $related->status !== 'published') {
+            return null;
+        }
+
+        $title = match ($type) {
+            'issue' => $related->indicator,
+            'intervention' => $related->name,
+            'resource' => $related->programme ?: $related->resource_category,
+            'law' => $related->instrument_title,
+        };
+
+        return [
+            'record_key' => $related->record_key,
+            'type' => $type,
+            'issue_area' => $related->issue_area,
+            'state' => $related->state,
+            'title' => $title,
+            'relationship_type' => $relationshipType,
+            'source_reference' => $sourceReference,
         ];
     }
 

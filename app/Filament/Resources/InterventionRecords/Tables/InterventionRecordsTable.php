@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\InterventionRecords\Tables;
 
+use App\Filament\Actions\DraftSelectedInterventionRecords;
 use App\Filament\Actions\PublishSelectedRecords;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -35,6 +36,7 @@ class InterventionRecordsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
+                    DraftSelectedInterventionRecords::make(),
                     PublishSelectedRecords::make(),
                     DeleteBulkAction::make()->visible(fn (): bool => auth()->user()?->isAdmin() ?? false),
                 ]),

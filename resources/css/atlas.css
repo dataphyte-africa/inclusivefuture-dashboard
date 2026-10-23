@@ -159,6 +159,9 @@
 .hero-intro-copy{align-self:start}
 .hero-stage .hero-scene .hero-map-visual{left:4%;right:auto;top:auto;bottom:0;width:92%;height:100%}
 .atlas-workspace{padding-block:72px}
+.atlas-workspace{scroll-margin-top:76px}
+.filter-panel label[hidden]{display:none}
+.record-relationships{border-top:1px solid #e5e7e7;margin-top:12px;padding-top:12px}.record-relationships>strong{display:block;font-size:10px;color:#445b79}.record-relationships p,.record-relationships li{font-size:10px;line-height:1.45;color:#596b84}.record-relationships p{margin:5px 0 0}.record-relationships ul{margin:6px 0 0;padding-left:16px}.record-relationships li+li{margin-top:4px}.record-relationships small,.record-link-note{color:#77849a}.record-link-note{margin-top:7px!important}
 @media(max-width:1100px) and (min-width:861px){.hero-stage{height:clamp(480px,46vw,520px);align-items:start;padding-top:clamp(30px,4vw,42px)}.hero-intro-copy{align-self:start}.hero-scene{height:100%}.hero-stage .hero-scene .hero-map-visual{position:absolute;left:3%;right:auto;top:auto;bottom:0;width:94%;height:100%}}
 @media(max-width:760px){.atlas-workspace{padding-block:40px}}
 .topbar .brand{width:142px;min-width:142px;flex:0 0 142px;gap:0}
@@ -182,3 +185,76 @@
     .hero-scene{grid-column:1;grid-row:2;width:100%;height:100%;min-height:0;margin:0}
     .hero-stage .hero-scene .hero-map-visual{position:absolute;left:4%;right:4%;top:auto;bottom:0;width:auto;height:min(100%,92vw)}
 }
+
+.filter-panel select:disabled{cursor:not-allowed}
+.filter-panel .filter-help{display:block;margin:5px 0 0;color:#74839a;font-size:10px;font-weight:400;line-height:1.35}
+.filter-panel .filter-help[hidden]{display:none}
+
+/* IFI brand palette: navy structure, summer-blue interaction, jasmine accent. */
+:root{--navy:#12305b;--blue:#6fa8dc;--gold:#f4d47c;--red:#ce5951;--muted:#596273;--line:#e7ddd2;--panel:#fff;--soft:#f7f0e8;--green:#4c9251;--ifi-tuna:#333340;--ifi-silent-white:#fff6ec;--ifi-summer-blue:#6fa8dc;--ifi-jasmine:#f4d47c;--ifi-elena:#ce5951}
+body{background:var(--ifi-silent-white);color:var(--navy)}
+.topbar{background:rgba(255,246,236,.96);border-bottom-color:#e7ddd2}
+.brand strong,.primary-nav a:hover,.primary-nav a.current,.map-heading h2,.state-panel-empty h2,.overview-metric strong,.linked-grid strong{color:var(--navy)}
+.primary-nav a.current:after,.state-tabs button.active:after{background:var(--ifi-jasmine)}
+.download-link,.hero-stage .hero-cta{background:var(--ifi-jasmine);color:var(--navy);box-shadow:0 3px 8px #12305b24}
+.download-link:hover,.hero-stage .hero-cta:hover{background:#f8dfa0;color:var(--navy)}
+.hero-stage{background:var(--ifi-silent-white);color:var(--navy)}
+.hero-stage .hero-kicker,.hero-stage .kicker,.kicker,.layer-number{color:var(--ifi-elena)}
+.hero-stage h1,.hero-stage .intro-lede{color:var(--navy)}
+.hero-step{background:#f5efe7;color:var(--navy)}
+.hero-step:hover,.hero-step:focus-visible{border-color:var(--ifi-summer-blue);outline-color:#6fa8dc80}
+.hero-step.is-active{background:#e8f1f8;border-color:var(--ifi-summer-blue);color:var(--navy)}
+.hero-step-icon{background:#e8f1f8;color:var(--navy)}
+.hero-step:nth-child(even) .hero-step-icon{background:#f9edc8;color:#72520b}
+.linkage-foot{color:var(--ifi-jasmine)}
+.filter-panel select:focus,.filter-panel select:focus-visible{border-color:var(--ifi-summer-blue);box-shadow:0 0 0 3px #6fa8dc45}
+.filter-note>i,.filter-note a,.source-summary a,.record-card dd a{color:#315e8b}
+.state-tabs button.active{color:var(--navy)}
+.insight-box{background:#fff0cf;color:#72520b}
+.layer-icon{background:#f9edc8;color:#72520b}
+.layer-number,.section-title .kicker{color:var(--ifi-elena)}
+.atlas-footer{background:var(--navy)}
+.atlas-footer h2{color:var(--ifi-jasmine)}
+.atlas-footer a{color:#c7e1f5}
+.legend-gradient i,.state-bar i{background:linear-gradient(90deg,#dcecf8,#b7d7ef,#6fa8dc,#407fb8,#12305b)}
+.map-state:hover .state-shape,.map-state:focus .state-shape{stroke:var(--ifi-summer-blue)}
+.state-shape.is-selected{stroke:var(--navy)}
+.state-list-row:hover,.state-list-row.is-selected{background:#fff4d9}
+.filter-panel select:focus-visible,.view-toggle button:focus-visible,.map-zoom button:focus-visible,.state-tabs button:focus-visible,.hero-cta:focus-visible{outline:3px solid var(--ifi-summer-blue);outline-offset:2px}
+
+/* Stronger IFI expression: a navy hero, light type, and summer-blue actions. */
+:root{--navy:#12305b;--blue:#6fa8dc;--gold:#f4d47c;--panel:#fff6ec;--soft:#eaf3fb}
+body{background:#fff6ec;color:#12305b}
+.topbar{background:rgba(18,48,91,.98);border-bottom-color:#294a73}
+.topbar .brand img{filter:brightness(0) invert(1)}
+.topbar .atlas-name{color:#fff6ec}
+.hero-stage{background:linear-gradient(112deg,#12305b 0%,#12305b 56%,#1b4777 100%);color:#fff6ec}
+.hero-stage h1,.hero-stage .hero-description{color:#fff6ec}
+.hero-stage .hero-kicker{color:#6fa8dc}
+.hero-stage .hero-kicker:after{background:#6fa8dc}
+.hero-stage .hero-cta{background:#6fa8dc;color:#12305b;border:1px solid #9cc7eb;box-shadow:0 8px 24px #081d3855}
+.hero-stage .hero-cta:hover{background:#9cc7eb;color:#12305b}
+.hero-stage .hero-cta:focus-visible{outline-color:#fff6ec}
+.hero-step{background:#fff6ec;color:#12305b;border-color:#6fa8dc}
+.hero-step:hover,.hero-step:focus-visible,.hero-step.is-active{background:#e4f0fb;border-color:#6fa8dc;color:#12305b}
+.hero-step-icon{background:#dcecf8;color:#12305b}
+.hero-step:nth-child(even) .hero-step-icon{background:#f4d47c;color:#12305b}
+.linkage-foot{color:#fff6ec}
+.evidence-sections{background:#eaf3fb}
+.layer-cards>a{background:#fff6ec;border-color:#c9dced}
+.layer-cards>a:hover,.layer-cards>a:focus-visible{border-color:#6fa8dc;box-shadow:0 8px 24px #12305b18}
+.layer-icon{background:#dcecf8;color:#12305b}
+.view-toggle button.selected{background:#12305b;color:#fff6ec}
+.filter-panel{background:#f4f8fc;border-color:#c9dced}
+.map-panel,.state-panel{background:#fff6ec;border-color:#d8e4ef}
+.map-heading h2,.state-panel-empty h2,.overview-metric strong,.linked-grid strong{color:#12305b}
+.filter-panel select:focus,.filter-panel select:focus-visible{border-color:#6fa8dc;box-shadow:0 0 0 3px #6fa8dc45}
+.map-zoom button:hover,.state-list-row:hover,.state-list-row.is-selected{background:#eaf3fb}
+.state-tabs button.active:after,.primary-nav a.current:after{background:#6fa8dc}
+.atlas-footer{background:#12305b}
+@media(max-width:760px){.topbar{background:#12305b}.hero-stage{background:linear-gradient(160deg,#12305b 0%,#12305b 68%,#1b4777 100%)}}
+
+/* Let the supplied portrait fill the hero scene edge-to-edge, without a frame or vertical gaps. */
+.hero-stage .hero-scene .hero-map-visual{top:0;bottom:0;height:100%;overflow:hidden;border:0;border-radius:0;box-shadow:none}
+.hero-stage .hero-feature-image{position:absolute;inset:0;display:block;width:100%;height:100%;margin:0;padding:0;object-fit:cover;object-position:center;border:0;border-radius:0}
+@media(min-width:861px){.hero-stage{padding-top:0}.hero-stage .hero-intro-copy{margin-top:clamp(24px,3vw,36px)}}

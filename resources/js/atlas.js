@@ -3,7 +3,7 @@ import { geoPath, geoTransform } from 'd3-geo';
 
 const records = window.eimRecords || [];
 const states = window.eimStates || [];
-const colors = ['#f7d77e', '#f3ad6d', '#e97d58', '#c9433f', '#9f2434'];
+const colors = ['#dcecf8', '#b7d7ef', '#6fa8dc', '#407fb8', '#12305b'];
 const stateAliases = new Map([
     ['fct', 'Abuja Federal Capital Territory'], ['fct abuja', 'Abuja Federal Capital Territory'],
     ['abuja', 'Abuja Federal Capital Territory'], ['cross river', 'Cross River'],
@@ -15,7 +15,12 @@ const issueRows = () => records.filter((r) => r.type === 'issue' && (!issueSelec
 const issueSelect = document.querySelector('#issue-filter');
 const indicatorSelect = document.querySelector('#indicator-filter');
 const periodSelect = document.querySelector('#period-filter');
+const currencySelect = document.querySelector('#currency-filter');
 const layerSelect = document.querySelector('#layer-filter');
+const indicatorHelp = document.querySelector('#indicator-filter-help');
+const periodHelp = document.querySelector('#period-filter-help');
+const currencyHelp = document.querySelector('#currency-filter-help');
+const layerHelp = document.querySelector('#layer-filter-help');
 const mapSvg = document.querySelector('#nigeria-map');
 const mapCanvas = document.querySelector('#map-canvas');
 const heroMapSvg = document.querySelector('#hero-nigeria-map');
@@ -24,6 +29,8 @@ let geo = null;
 let selectedState = null;
 let activeTab = 'overview';
 let zoom = 1;
+const periodChoices = { issue: '', resource: '' };
+let currencyChoice = '';
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const normalizeType = (type) => ({ law: 'law', issue: 'issue', resource: 'resource', intervention: 'intervention' })[type];
@@ -46,37 +53,53 @@ function fillSelect(select, options, chosen) {
 function initFilters() {
     fillSelect(issueSelect, [{ value: '', label: 'All issue areas' }, ...allIssues.map((value) => ({ value, label: value }))], allIssues.includes('Girls\' Education') ? 'Girls\' Education' : allIssues[0] || '');
     const refreshIndicators = () => {
-        const indicators = [...new Set(issueRows().map((r) => r.title).filter((v) => v && issueRows().some((r) => r.title === v && numeric(r) !== null)))].sort();
-        fillSelect(indicatorSelect, indicators.map((value) => ({ value, label: value })), indicators[0] || '');
+        const previousChoice = indicatorSelect.value;
+        const indicators = [...new Set(issueRows().filter((row) => numeric(row) !== null).map((row) => row.title).filter(Boolean))].sort();
+        fillSelect(
+            indicatorSelect,
+            indicators.length ? indicators.map((value) => ({ value, label: value })) : [{ value: '', label: 'No indicators available' }],
+            indicators.includes(previousChoice) ? previousChoice : indicators[0] || '',
+        );
     };
     issueSelect.addEventListener('change', () => { refreshIndicators(); render(); });
     refreshIndicators();
     indicatorSelect.addEventListener('change', render);
-    periodSelect.addEventListener('change', render);
+    periodSelect.addEventListener('change', () => {
+        if (['issue', 'resource'].includes(layerSelect.value)) periodChoices[layerSelect.value] = periodSelect.value;
+        render();
+    });
+    currencySelect.addEventListener('change', () => { currencyChoice = currencySelect.value; render(); });
     layerSelect.addEventListener('change', () => { selectedState && renderStatePanel(); render(); });
 }
 
 function activeRecordsForState(state) {
-    const rows = getRecordsForState(state);
     if (layerSelect.value === 'issue') {
-        const selected = rows.filter((r) => r.type === 'issue' && r.title === indicatorSelect.value);
-        if (periodSelect.value) return selected.filter((r) => String(r.details?.period || '') === periodSelect.value);
-        const latestByKey = new Map();
-        selected.forEach((r) => {
-            const prev = latestByKey.get(r.title);
-            if (!prev || String(r.details?.period || '').localeCompare(String(prev.details?.period || '')) > 0) latestByKey.set(r.title, r);
-        });
-        return [...latestByKey.values()];
+        return issueRecordsForState(state);
     }
-    return rows.filter((r) => r.type === layerSelect.value);
+    return getRecordsForState(state).filter((r) => r.type === layerSelect.value);
+}
+
+function issueRecordsForState(state) {
+    const selected = getRecordsForState(state).filter((r) => r.type === 'issue' && r.title === indicatorSelect.value);
+    if (layerSelect.value === 'issue' && periodSelect.value) {
+        return selected.filter((r) => String(r.details?.period || '') === periodSelect.value);
+    }
+    const latestByKey = new Map();
+    selected.forEach((r) => {
+        const prev = latestByKey.get(r.title);
+        if (!prev || String(r.details?.period || '').localeCompare(String(prev.details?.period || '')) > 0) latestByKey.set(r.title, r);
+    });
+    return [...latestByKey.values()];
 }
 
 function valueForState(state) {
     const matches = activeRecordsForState(state);
     if (layerSelect.value === 'issue') return numeric(matches[0]);
     if (layerSelect.value === 'resource') {
-        const currency = periodSelect.value;
-        const allocations = matches.filter((r) => !isReleaseCategory(r.details?.resource_category) && (!currency || (r.details?.currency || 'Unspecified') === currency));
+        const currency = currencySelect.value;
+        const allocations = matches.filter((r) => !isReleaseCategory(r.details?.resource_category)
+            && (!currency || (r.details?.currency || 'Unspecified') === currency)
+            && (!periodSelect.value || String(r.details?.period || r.details?.allocation_year || '') === periodSelect.value));
         return allocations.length ? allocations.reduce((sum, r) => sum + Number(r.details?.amount || 0), 0) : null;
     }
     return matches.length || null;
@@ -196,15 +219,19 @@ const abbreviations = { 'Abia': 'AB', 'Adamawa': 'AD', 'Akwa Ibom': 'AK', 'Anamb
 function renderLegend(values) {
     const legend = document.querySelector('#map-legend');
     const layer = layerSelect.value;
-    const labelLowHigh = layer === 'issue' ? ['Lower burden', 'Higher burden'] : layer === 'resource' ? ['Lower recorded allocation', 'Higher recorded allocation'] : ['Fewer records', 'More records'];
-    const mid = values.length ? values[Math.floor(values.length / 2)] : null;
-    legend.innerHTML = `<div class="legend-gradient"><span>${labelLowHigh[0]}</span><i></i><span>${labelLowHigh[1]}</span></div><span class="legend-missing"><i></i>No matching record</span>${layer === 'issue' && mid !== null ? `<span class="legend-mid">Median ${escapeHtml(formatNumber(mid))}${issueRows()[0]?.details?.unit === 'percent' ? '%' : ''}</span>` : ''}`;
+    const labelLowHigh = layer === 'issue' ? ['Lower value', 'Higher value'] : layer === 'resource' ? ['Lower recorded allocation', 'Higher recorded allocation'] : ['Fewer records', 'More records'];
+    const sorted = [...values].sort((a, b) => a - b);
+    const median = sorted.length ? (sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2) : null;
+    const indicatorRows = issueRows().filter((row) => row.title === indicatorSelect.value);
+    const periodRows = periodSelect.value ? indicatorRows.filter((row) => String(row.details?.period || '') === periodSelect.value) : indicatorRows;
+    const unit = periodRows[0]?.details?.unit;
+    legend.innerHTML = `<div class="legend-gradient"><span>${labelLowHigh[0]}</span><i></i><span>${labelLowHigh[1]}</span></div><span class="legend-missing"><i></i>No matching record</span><span class="legend-coverage">Coverage ${values.length}/${states.length} states</span>${layer === 'issue' && median !== null ? `<span class="legend-mid">Median ${escapeHtml(issueValueLabel(median, unit))}</span>` : ''}`;
 }
 
 function renderList() {
     const list = document.querySelector('#state-list');
     const values = states.map(([name, zone]) => ({ name, zone, value: valueForState(name) })).sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity));
-    list.innerHTML = values.map(({ name, zone, value }) => `<button type="button" class="state-list-row ${key(selectedState) === key(name) ? 'is-selected' : ''}" data-state="${escapeHtml(name)}"><span class="state-name"><b>${escapeHtml(name)}</b><small>${escapeHtml(zoneName(zone))}</small></span><span class="state-bar"><i style="width:${value === null ? 0 : Math.max(5, (value / (Math.max(...values.map((r) => r.value || 0)) || 1)) * 100)}%"></i></span><span class="state-value">${value === null ? 'No record' : layerSelect.value === 'issue' ? escapeHtml(issueValueLabel(value, issueRows()[0]?.details?.unit)) : layerSelect.value === 'resource' ? escapeHtml(money(value, periodSelect.value || 'NGN')) : `${value} records`}</span></button>`).join('');
+    list.innerHTML = values.map(({ name, zone, value }) => `<button type="button" class="state-list-row ${key(selectedState) === key(name) ? 'is-selected' : ''}" data-state="${escapeHtml(name)}"><span class="state-name"><b>${escapeHtml(name)}</b><small>${escapeHtml(zoneName(zone))}</small></span><span class="state-bar"><i style="width:${value === null ? 0 : Math.max(5, (value / (Math.max(...values.map((r) => r.value || 0)) || 1)) * 100)}%"></i></span><span class="state-value">${value === null ? 'No record' : layerSelect.value === 'issue' ? escapeHtml(issueValueLabel(value, issueRows()[0]?.details?.unit)) : layerSelect.value === 'resource' ? escapeHtml(money(value, currencySelect.value || 'NGN')) : `${value} records`}</span></button>`).join('');
     list.querySelectorAll('[data-state]').forEach((button) => button.addEventListener('click', () => selectState(button.dataset.state)));
 }
 
@@ -224,7 +251,7 @@ function renderStatePanel() {
     if (!selectedState) return;
     const stateRecords = getRecordsForState(selectedState);
     const issueRecords = stateRecords.filter((r) => r.type === 'issue' && (!issueSelect.value || r.issue_area === issueSelect.value));
-    const selectedIssue = issueRecords.find((r) => r.title === indicatorSelect.value && numeric(r) !== null);
+    const selectedIssue = issueRecordsForState(selectedState).find((r) => numeric(r) !== null);
     const interventionRecords = stateRecords.filter((r) => r.type === 'intervention');
     const resourceRecords = stateRecords.filter((r) => r.type === 'resource');
     const lawRecords = stateRecords.filter((r) => r.type === 'law');
@@ -237,12 +264,18 @@ function renderStatePanel() {
     const panelContent = document.querySelector('#state-tab-content');
     if (tab === 'overview') {
         const issueValue = selectedIssue ? issueValueLabel(numeric(selectedIssue), selectedIssue.details.unit) : 'No value available';
-        const resourceCurrency = resourceRecords[0]?.details.currency || 'NGN';
-        const resources = resourceRecords.filter((record) => !isReleaseCategory(record.details.resource_category) && (record.details.currency || 'Unspecified') === resourceCurrency).reduce((sum, record) => sum + Number(record.details.amount || 0), 0);
-        panelContent.innerHTML = `<div class="overview-metric"><span>Burden value</span><strong>${escapeHtml(issueValue)}</strong><small>${escapeHtml(indicatorSelect.value || 'Selected indicator')}</small></div><div class="linked-grid"><div><span>Linked interventions</span><strong>${interventionRecords.length}</strong><small>programmes</small></div><div><span>Resources recorded</span><strong>${resourceRecords.length ? escapeHtml(money(resources, resourceCurrency)) : '—'}</strong><small>${resourceRecords.length} records · excluding releases</small></div></div><div class="law-summary"><span>Laws and policies</span><strong>${lawRecords.length || 'No'} <small>relevant records</small></strong><div class="law-count-bar"><i style="width:${lawRecords.length ? '100%' : '0%'}"></i></div><small>${lawStatuses.length ? lawStatuses.map(escapeHtml).join(' · ') : lawRecords.length ? 'Status information is not available' : 'No matching evidence'}</small></div><div class="insight-box"><div class="insight-title"><i class="ti ti-bulb"></i><strong>Key insight</strong></div><p>${selectedIssue ? `${escapeHtml(selectedState)} has a reported ${escapeHtml(indicatorSelect.value)} figure. Explore the related tabs to see the wider response.` : `No figure for ${escapeHtml(indicatorSelect.value)} matches these filters in ${escapeHtml(selectedState)}.`}</p></div><div class="source-summary"><strong>Reporting period</strong><p>${escapeHtml(selectedIssue?.details.period || 'Varies by source')}</p><strong>Sources</strong><p>${escapeHtml(sources.join('; ') || 'Source references are not available for this selection.')}</p>${selectedIssue?.details.source_url ? `<a href="${escapeHtml(selectedIssue.details.source_url)}" target="_blank" rel="noopener">View source <i class="ti ti-arrow-up-right"></i></a>` : ''}</div>`;
+        const resourceCurrency = (layerSelect.value === 'resource' ? currencySelect.value : '') || resourceRecords[0]?.details.currency || 'NGN';
+        const selectedResources = resourceRecords.filter((record) => (record.details.currency || 'Unspecified') === resourceCurrency
+            && (!periodSelect.value || String(record.details.period || record.details.allocation_year || '') === periodSelect.value));
+        const resources = selectedResources.filter((record) => !isReleaseCategory(record.details.resource_category)).reduce((sum, record) => sum + Number(record.details.amount || 0), 0);
+        const linkedRecords = selectedIssue?.related_records || [];
+        const relationshipMarkup = linkedRecords.length
+            ? `<div class="record-relationships"><strong>Explicitly linked records</strong><ul>${linkedRecords.map((record) => `<li><span>${escapeHtml(record.relationship_type.replaceAll('_', ' '))}</span> · ${escapeHtml(record.title)} (${escapeHtml(record.type)})${record.source_reference ? ` <small>· ${escapeHtml(record.source_reference)}</small>` : ''}</li>`).join('')}</ul></div>`
+            : '<div class="record-relationships"><strong>Record relationships</strong><p>No explicit record-level links are recorded for this issue indicator. Other layers below are shown by state and issue area only.</p></div>';
+        panelContent.innerHTML = `<div class="overview-metric"><span>Selected value</span><strong>${escapeHtml(issueValue)}</strong><small>${escapeHtml(indicatorSelect.value || 'Selected indicator')}</small></div><div class="linked-grid"><div><span>Interventions in this state and issue area</span><strong>${interventionRecords.length}</strong><small>state/issue-area co-occurrence</small></div><div><span>Resources in this state and issue area</span><strong>${selectedResources.length ? escapeHtml(money(resources, resourceCurrency)) : '—'}</strong><small>${selectedResources.length} ${escapeHtml(resourceCurrency)} records · releases excluded from total · co-occurrence only</small></div></div><div class="law-summary"><span>Laws and policies</span><strong>${lawRecords.length || 'No'} <small>records in this state and issue area</small></strong><small>${lawStatuses.length ? lawStatuses.map(escapeHtml).join(' · ') : lawRecords.length ? 'Status information is not available' : 'No matching evidence'} · co-occurrence only</small></div>${relationshipMarkup}<div class="insight-box"><div class="insight-title"><i class="ti ti-bulb"></i><strong>Selected evidence</strong></div><p>${selectedIssue ? `${escapeHtml(selectedState)} has a recorded value for ${escapeHtml(indicatorSelect.value)} in ${escapeHtml(selectedIssue.details.period || 'an unspecified period')}. ${linkedRecords.length ? 'Explicit links are listed above with their relationship type and source reference.' : 'Other layer records share the selected state and issue area; no direct record link is defined.'}` : `No ${escapeHtml(indicatorSelect.value)} figure matches the selected period in ${escapeHtml(selectedState)}.`}</p></div><div class="source-summary"><strong>Reporting period</strong><p>${escapeHtml(selectedIssue?.details.period || 'Not recorded')}</p><strong>Sources</strong><p>${escapeHtml(sources.join('; ') || 'Source names are not recorded for this selection.')}</p>${selectedIssue?.details.source_url ? `<a href="${escapeHtml(selectedIssue.details.source_url)}" target="_blank" rel="noopener">View source <i class="ti ti-arrow-up-right"></i></a>` : ''}</div>`;
     } else {
-        const rows = tab === 'evidence' ? issueRecords : tab === 'intervention' ? interventionRecords : lawRecords;
-        const titles = { evidence: 'Issue evidence', intervention: 'Interventions', law: 'Laws and policies' };
+        const rows = tab === 'evidence' ? issueRecords : tab === 'intervention' ? interventionRecords : tab === 'resource' ? resourceRecords : lawRecords;
+        const titles = { evidence: 'Issue evidence', intervention: 'Interventions', resource: 'Resources', law: 'Laws and policies' };
         panelContent.innerHTML = `<h3 class="record-list-title">${titles[tab]} <span>${rows.length}</span></h3>${rows.length ? `<div class="record-list">${rows.map(recordCard).join('')}</div>` : `<div class="no-record"><i class="ti ti-file-off"></i><p>No evidence matches these filters.</p></div>`}`;
     }
 }
@@ -252,7 +285,9 @@ function recordCard(record) {
     const period = details.period || details.allocation_year || details.enactment_date || '';
     const source = [details.source_name, details.funder_mda, details.implementer].find((value) => value && !isSampleLabel(value)) || '';
     const extra = record.type === 'issue' ? `${details.value ?? 'Value not recorded'} ${details.unit || ''}` : record.type === 'resource' ? money(details.amount || 0, details.currency || 'NGN') : details.status_label || details.intervention_type || details.resource_category || '';
-    return `<article class="record-card"><div><h4>${escapeHtml(record.title || 'Untitled record')}</h4><p>${escapeHtml(record.issue_area || 'Issue not recorded')}${period ? ` · ${escapeHtml(period)}` : ''}</p></div><strong>${escapeHtml(extra)}</strong>${source ? `<small>${escapeHtml(source)}</small>` : ''}<details><summary>Source details</summary><dl>${Object.entries(details).filter(([, value]) => value !== null && value !== '' && !isSampleLabel(value)).map(([field, value]) => `<div><dt>${escapeHtml(field.replaceAll('_', ' '))}</dt><dd>${field === 'source_url' ? `<a href="${escapeHtml(value)}" target="_blank" rel="noopener">Open source</a>` : escapeHtml(value)}</dd></div>`).join('')}</dl></details></article>`;
+    const related = record.related_records || [];
+    const relatedMarkup = related.length ? `<p class="record-link-note">Explicitly linked to ${related.map((item) => `${escapeHtml(item.title)} (${escapeHtml(item.relationship_type.replaceAll('_', ' '))})`).join('; ')}.</p>` : '';
+    return `<article class="record-card"><div><h4>${escapeHtml(record.title || 'Untitled record')}</h4><p>${escapeHtml(record.issue_area || 'Issue not recorded')}${period ? ` · ${escapeHtml(period)}` : ''}</p></div><strong>${escapeHtml(extra)}</strong>${source ? `<small>${escapeHtml(source)}</small>` : ''}${relatedMarkup}<details><summary>Source details</summary><dl>${Object.entries(details).filter(([, value]) => value !== null && value !== '' && !isSampleLabel(value)).map(([field, value]) => `<div><dt>${escapeHtml(field.replaceAll('_', ' '))}</dt><dd>${field === 'source_url' ? `<a href="${escapeHtml(value)}" target="_blank" rel="noopener">Open source</a>` : escapeHtml(value)}</dd></div>`).join('')}</dl></details></article>`;
 }
 
 function render() {
@@ -260,23 +295,91 @@ function render() {
     const layerTitles = { issue: `${indicatorSelect.value || 'Issue burden'} by state`, intervention: 'Interventions by state', resource: 'Resources by state', law: 'Laws and policies by state' };
     const issue = issueSelect.value || 'all issue areas';
     document.querySelector('#map-title').textContent = layerTitles[layerSelect.value];
-    document.querySelector('#map-subtitle').textContent = layerSelect.value === 'issue' ? 'Higher values indicate greater burden. Grey areas have no matching figure.' : `Explore ${layerLabels[layerSelect.value].toLocaleLowerCase()} related to ${issue}. Grey areas have no matching evidence.`;
-    const relevant = records.filter((r) => r.type === layerSelect.value && (!issueSelect.value || r.issue_area === issueSelect.value));
-    const periodLabel = periodSelect.parentElement;
-    periodLabel.firstChild.textContent = layerSelect.value === 'resource' ? 'Currency' : 'Period';
-    periodSelect.setAttribute('aria-label', layerSelect.value === 'resource' ? 'Currency' : 'Reporting period');
-    const previousChoice = periodSelect.value;
-    if (layerSelect.value === 'resource') {
-        const currencies = [...new Set(relevant.map((r) => r.details?.currency || 'Unspecified'))].sort();
-        fillSelect(periodSelect, currencies.map((value) => ({ value, label: value === 'NGN' ? 'NGN · ₦' : value })), currencies.includes(previousChoice) ? previousChoice : currencies[0] || 'NGN');
-    } else {
-        const periods = [...new Set(issueRows().map((r) => r.details?.period).filter(Boolean))].sort((a, b) => String(b).localeCompare(String(a)));
-        fillSelect(periodSelect, [{ value: '', label: 'Most recent available' }, ...periods.map((value) => ({ value, label: value }))], periods.includes(previousChoice) ? previousChoice : '');
+    document.querySelector('#map-subtitle').textContent = layerSelect.value === 'issue' ? 'Reported values for the selected indicator and period. Grey areas have no matching figure.' : `Explore ${layerLabels[layerSelect.value].toLocaleLowerCase()} recorded for ${issue}. Grey areas have no matching evidence.`;
+    const recordsForArea = (type) => records.filter((r) => r.type === type && (!issueSelect.value || r.issue_area === issueSelect.value));
+    const relevant = recordsForArea(layerSelect.value);
+    const resourceAllocations = recordsForArea('resource').filter((record) => {
+        const amount = Number(record.details?.amount);
+        return !isReleaseCategory(record.details?.resource_category) && record.details?.amount !== null && record.details?.amount !== '' && Number.isFinite(amount);
+    });
+    const layerHasData = (type) => type === 'issue'
+        ? recordsForArea(type).some((record) => numeric(record) !== null)
+        : type === 'resource' ? resourceAllocations.length > 0 : recordsForArea(type).length > 0;
+    const layerOptions = [...layerSelect.options];
+    layerOptions.forEach((option) => {
+        if (!option.value) return;
+        option.disabled = !layerHasData(option.value);
+    });
+    if (layerSelect.selectedOptions[0]?.disabled) {
+        const firstAvailableLayer = layerOptions.find((option) => option.value && !option.disabled);
+        if (firstAvailableLayer) layerSelect.value = firstAvailableLayer.value;
     }
+    layerSelect.disabled = !layerOptions.some((option) => option.value && !option.disabled);
+    issueSelect.disabled = allIssues.length === 0;
+    layerHelp.textContent = layerSelect.disabled
+        ? 'No evidence layers have records for this issue area.'
+        : layerOptions.some((option) => option.value && option.disabled)
+            ? 'Layers without records for this issue area are unavailable.'
+            : '';
+    layerHelp.hidden = !layerHelp.textContent;
+    const periodLabel = document.querySelector('#period-filter-label');
+    const previousChoice = periodChoices[layerSelect.value] ?? '';
+    if (layerSelect.value === 'resource') {
+        const resourcePeriods = [...new Set(resourceAllocations.map((record) => String(record.details?.period || record.details?.allocation_year || '')).filter(Boolean))].sort((a, b) => b.localeCompare(a));
+        fillSelect(
+            periodSelect,
+            resourcePeriods.length ? [{ value: '', label: 'All available periods' }, ...resourcePeriods.map((value) => ({ value, label: value }))] : [{ value: '', label: 'No periods available' }],
+            resourcePeriods.includes(previousChoice) ? previousChoice : '',
+        );
+        periodChoices.resource = periodSelect.value;
+    } else if (layerSelect.value === 'issue') {
+        const indicatorPeriods = issueRows()
+            .filter((row) => numeric(row) !== null && row.title === indicatorSelect.value)
+            .map((row) => row.details?.period)
+            .filter(Boolean);
+        const periods = [...new Set(indicatorPeriods)].sort((a, b) => String(b).localeCompare(String(a)));
+        fillSelect(
+            periodSelect,
+            periods.length ? [{ value: '', label: 'Most recent available' }, ...periods.map((value) => ({ value, label: value }))] : [{ value: '', label: 'No periods available' }],
+            periods.includes(previousChoice) ? previousChoice : '',
+        );
+        periodChoices.issue = periodSelect.value;
+    } else {
+        fillSelect(periodSelect, [{ value: '', label: 'Not used for this layer' }], '');
+    }
+    const currencies = [...new Set(resourceAllocations.map((record) => record.details?.currency || 'Unspecified'))].sort();
+    fillSelect(
+        currencySelect,
+        currencies.length ? currencies.map((value) => ({ value, label: value === 'NGN' ? 'NGN · ₦' : value })) : [{ value: '', label: 'No currencies available' }],
+        currencies.includes(currencyChoice) ? currencyChoice : currencies[0] || '',
+    );
+    currencyChoice = currencySelect.value;
     renderMap(); renderList();
     Object.keys(layerLabels).forEach((type) => { document.querySelector(`#count-${type}`).innerHTML = `${records.filter((r) => r.type === type).length.toLocaleString()} records <i class="ti ti-arrow-up-right"></i>`; });
-    document.querySelector('#indicator-control').hidden = layerSelect.value !== 'issue';
-    document.querySelector('#period-filter').disabled = false;
+    const indicatorsAvailable = [...indicatorSelect.options].some((option) => option.value !== '');
+    const periodsAvailable = [...periodSelect.options].some((option) => option.value !== '');
+    const currenciesAvailable = resourceAllocations.length > 0;
+    const currencyApplies = layerSelect.value === 'resource';
+    const periodApplies = ['issue', 'resource'].includes(layerSelect.value);
+
+    indicatorSelect.disabled = layerSelect.value !== 'issue' || !indicatorsAvailable;
+    indicatorHelp.textContent = layerSelect.value !== 'issue'
+        ? 'Available when Evidence layer is Burden.'
+        : indicatorsAvailable ? '' : 'No numeric indicators are available for this issue area.';
+    indicatorHelp.hidden = !indicatorHelp.textContent;
+
+    periodLabel.textContent = 'Period';
+    periodSelect.setAttribute('aria-label', 'Reporting period');
+    periodSelect.disabled = !periodApplies || !periodsAvailable;
+    periodHelp.textContent = !periodApplies
+        ? `Not used for ${layerLabels[layerSelect.value]}. Choose Burden or Resources to use this filter.`
+        : periodsAvailable ? '' : `No reporting periods are available for this ${layerSelect.value === 'issue' ? 'indicator' : 'resource data'}.`;
+    periodHelp.hidden = !periodHelp.textContent;
+    currencySelect.disabled = !currencyApplies || !currenciesAvailable;
+    currencyHelp.textContent = !currenciesAvailable
+        ? 'No currencies are recorded for this issue area.'
+        : currencyApplies ? '' : 'Available when Evidence layer is Resources.';
+    currencyHelp.hidden = !currencyHelp.textContent;
     document.querySelector('#map-title').setAttribute('data-layer-label', layerLabels[layerSelect.value]);
     if (selectedState) renderStatePanel();
 }
@@ -301,10 +404,13 @@ document.querySelector('#close-state').addEventListener('click', () => { selecte
 document.querySelector('#map-view-button').addEventListener('click', () => setView('map'));
 document.querySelector('#list-view-button').addEventListener('click', () => setView('list'));
 function setView(view) { const list = view === 'list'; document.querySelector('#state-list').hidden = !list; mapCanvas.hidden = list; document.querySelector('#map-legend').hidden = list; document.querySelector('#map-view-button').classList.toggle('selected', !list); document.querySelector('#list-view-button').classList.toggle('selected', list); }
-document.querySelectorAll('[data-layer-link]').forEach((link) => link.addEventListener('click', () => {
+document.querySelectorAll('[data-layer-link]').forEach((link) => link.addEventListener('click', (event) => {
+    event.preventDefault();
     layerSelect.value = link.dataset.layerLink;
     setView('map');
     render();
+    window.history.replaceState(null, '', '#atlas-controls');
+    document.querySelector('#atlas-controls').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }));
 document.querySelectorAll('[data-layer-nav]').forEach((link) => link.addEventListener('click', (event) => { event.preventDefault(); layerSelect.value = link.dataset.layerNav; document.querySelectorAll('.primary-nav a').forEach((item) => item.classList.toggle('current', item === link)); setView('map'); render(); document.querySelector('.atlas-workspace').scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
 document.querySelector('#zoom-in').addEventListener('click', () => { zoom = Math.min(1.8, zoom + 0.15); mapSvg.style.transform = `scale(${zoom})`; });

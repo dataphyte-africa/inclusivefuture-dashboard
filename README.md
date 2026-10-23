@@ -18,7 +18,7 @@ Create a local panel user with `php artisan make:filament-user`, then sign in at
 
 ## CSV ingestion
 
-The panel has one importer for each data type. Importers validate rows, keep the upload's record key as an idempotent upsert key, and save imported rows as drafts. Review the import result and record details, then use the panel's Publish action to make a record public. The public dashboard only reads published rows. Imports do not accept a publication status column.
+The panel has one importer for each of the four evidence layers. Importers validate rows, keep each layer's `record_key` as an idempotent upsert key, and save imported rows as drafts. Review the import result and record details, then use the panel's Publish action to make a record public. The public dashboard only reads published rows. Imports do not accept a publication status column.
 
 Starter CSVs are in `data/samples/`:
 
@@ -26,8 +26,9 @@ Starter CSVs are in `data/samples/`:
 - `interventions.csv`: `record_key`, `issue_area`, `state`, `geography_level`, `name`, `intervention_type`, `implementer`, `target_population`, `start_date`, `end_date`, `coverage_geography`, `implementation_status`, `description`, `source_name`, `source_url`, `source_reference`, `notes`.
 - `resources.csv`: `record_key`, `issue_area`, `state`, `geography_level`, `programme`, `funder_mda`, `resource_category`, `funding_stage`, `amount`, `currency`, `allocation_year`, `period`, `source_name`, `source_url`, `source_reference`, `notes`.
 - `laws-policies.csv`: `record_key`, `issue_area`, `state`, `geography_level`, `instrument_title`, `instrument_category`, `law_policy_family`, `jurisdiction`, `status_label`, `enactment_date`, `source_name`, `source_url`, `source_reference`, `notes`.
+- `relationships.csv`: `issue_record_key`, `related_record_type`, `related_record_key`, `relationship_type`, `source_reference`. Upload issue, intervention, resource and law/policy records first, then import this mapping from Issue Records. `related_record_type` must be `intervention`, `resource`, or `law`. Each row links one issue record to one related record; repeat the issue key for additional links. Both keys must already exist. A relationship is idempotently updated by the issue/related-record pair, and its source reference is required.
 
-Keep the source and period with every imported row. Use one currency per resource amount, and keep budget allocation, release, commitment, and expenditure as distinct stages. Blank optional values are allowed. Rows with the same `record_key` update the existing record; choose stable, unique keys for the source dataset.
+Keep the source and period with every imported row. Use one currency per resource amount, and keep budget allocation, release, commitment, and expenditure as distinct stages. Blank optional values are allowed. Rows with the same `record_key` update the existing record; choose stable, unique keys for the source dataset. Do not infer direct relationships from matching issue area or state. Use the relationship CSV only when the record-level link and its source/reference are known. The relationship rows shipped with sample/reference-synthetic data are development examples, not verified links.
 
 ## Stack
 
