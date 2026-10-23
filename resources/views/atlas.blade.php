@@ -31,7 +31,6 @@
                     <img class="hero-feature-image" src="{{ asset('images/hero-mother-child.jpg') }}" alt="A woman holding a child" fetchpriority="high">
                 </div>
             </div>
-            <img class="hero-landscape" src="{{ asset('images/hero-nigeria-cityscape.png') }}" alt="" aria-hidden="true" fetchpriority="high">
         </section>
 
         <section class="evidence-sections" id="evidence">
